@@ -160,7 +160,7 @@ class Demo_olc2C02 : public olc::PixelGameEngine {
 
     bool OnUserCreate() {
         // Load the cartridge
-        cart = std::make_shared<Cartridge>("smb.nes");
+        cart = std::make_shared<Cartridge>("nestest.nes");
 
         if (!cart->ImageValid()) return false;
 

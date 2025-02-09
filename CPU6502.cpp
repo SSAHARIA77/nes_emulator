@@ -425,7 +425,7 @@ uint8_t CPU6502::ASL(){
     fetch();
     temp = (uint16_t) fetched << 1;
     setFlag(C, (temp & 0xFF00) > 0);
-    setFlag(Z, temp & 0x00FF == 0x00);
+    setFlag(Z, (temp & 0x00FF) == 0x00);
     setFlag(N, temp & 0x80);
     if(lookup.at(opcode).addrMode == &CPU6502::IMP){
         a = temp & 0x00FF;
@@ -803,7 +803,7 @@ uint8_t CPU6502::PLA(){
 
 uint8_t CPU6502::PLP(){
     sp++;
-    a = read(0x0100 + sp);
+    pStatus = read(0x0100 + sp);
     setFlag(U, 1);
     return 0;
 }	
@@ -811,7 +811,7 @@ uint8_t CPU6502::PLP(){
 uint8_t CPU6502::ROL(){
     fetch();
 
-    temp = (uint16_t) fetched << 1 | getFlag(C);
+    temp = (uint16_t) (fetched << 1) | getFlag(C);
     setFlag(C, temp & 0xFF00);
     setFlag(Z, (temp & 0x00FF) == 0x0000);
     setFlag(N, temp & 0x0080);

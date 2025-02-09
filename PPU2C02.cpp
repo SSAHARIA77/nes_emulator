@@ -1,6 +1,8 @@
 #include "PPU2C02.h"
 
 PPU2C02::PPU2C02() {
+
+    
     palScreen[0x00] = olc::Pixel(84, 84, 84);
     palScreen[0x01] = olc::Pixel(0, 30, 116);
     palScreen[0x02] = olc::Pixel(8, 16, 144);
@@ -103,7 +105,7 @@ olc::Sprite &PPU2C02::GetPatternTable(uint8_t i, uint8_t palette) {
 
                 for (uint16_t col{}; col < 8; col++) {
                     //Adding the value of LSB plane and MSB plane to get a value b/w 0 and 3 for the pixel
-                    uint8_t pixel = (tileLsb & 0x01) + (tileMsb & 0x01);
+                    uint8_t pixel = (tileLsb & 0x01) + ((tileMsb & 0x01) << 1);
                     tileLsb >>= 1;
                     tileMsb >>= 1;
 
@@ -482,7 +484,7 @@ void PPU2C02::clock() {
                     + ((uint16_t)bgNextTileId << 4) 
                     + (vramAddr.fine_y) + 8);
                     break;
-                case 7:
+                case 7: 
                     IncrementScrollX();
                     break;
             }
@@ -548,7 +550,6 @@ void PPU2C02::clock() {
         bgPalette = (bg_pal1 << 1) | bg_pal0;
     }
 
-    // Fake some noise for now, selecti ng black or white pixel
     sprScreen->SetPixel(cycle - 1, scanline, GetColourFromPaletteRam(bgPalette, bgPixel));
 
     // Advance renderer - it never stops, it's relentless

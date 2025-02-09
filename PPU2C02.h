@@ -146,7 +146,7 @@ class PPU2C02 {
     uint8_t bgNextTileMsb = 0x00;
 
     uint8_t address_latch =
-        0x00;  // to know if we are using low byte or high byte
+        0x00;  // to know if we are using low byte or high byte when reading/writing to ppu
     uint8_t ppu_data_buffer = 0x00;  // when we read from ppu it is delayed by
                                      // one cyle so we need to buffer the byte
 
