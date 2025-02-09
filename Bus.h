@@ -6,7 +6,9 @@
 #include "Cartridge.h"
 
 // Ram array?
-// g++ olcNes_Video2_2C02.cpp Bus.cpp CPU6502.cpp PPU2C02.cpp Cartridge.cpp Mapper_000.cpp Mapper.cpp -o test2 -lopengl32 -lglu32 -lgdi32 -luser32 -lgdiplus -lshlwapi -ldwmapi
+/*
+g++ olcNes_PPU_Backgrounds.cpp Bus.cpp CPU6502.cpp PPU2C02.cpp Cartridge.cpp Mapper_000.cpp Mapper.cpp -o test2 -lopengl32 -lglu32 -lgdi32 -luser32 -lgdiplus -lshlwapi -ldwmapi
+*/
 
 class Bus{
 
@@ -27,12 +29,13 @@ class Bus{
         //Concept of mirrorring is used here and the first 2kB of memory is the actual hardware memory. The
         //rest three 2kB chunks are effectively mapped to the original 2kB section.
         uint8_t cpuRam[2048]; 
+        uint8_t controller[2];
 
         //Functionalities
 
         //Read and Write from and to CPU
         void cpuWrite(uint16_t addr, uint8_t data);
-        uint8_t cpuRead(uint16_t addr, bool bReadOnly);
+        uint8_t cpuRead(uint16_t addr, bool bReadOnly = false);
 
 
         //System Interface
@@ -43,5 +46,6 @@ class Bus{
 
     private:
         uint32_t nSystemClockCounter = 0;
+        uint8_t controllerState[2];
 
 };

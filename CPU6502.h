@@ -1,22 +1,23 @@
 #pragma once
+#include <vector>
 #include <cstdint>
 #include <iostream>
 #include <map>
-#include <vector>
 //Forward Declaration
 class Bus; // As bus is also dependent on cpu 
 
 class CPU6502{
+    public:
+        CPU6502();
+        ~CPU6502();
 
     private:
-    Bus * bus = nullptr;
+        Bus * bus = nullptr;
+        void write(uint16_t addr, uint8_t data);
+        uint8_t read(uint16_t addr);
 
     public:
-
-    CPU6502();
-    void connectBus(Bus *b);
-    void write(uint16_t addr, uint8_t data);
-    uint8_t read(uint16_t addr);
+    void connectBus(Bus *b){bus = b;};
 
     //Processor Registers
     uint8_t a = 0x00;
@@ -41,7 +42,7 @@ class CPU6502{
     std::map<uint16_t, std::string> disassemble(uint16_t nStart, uint16_t nStop);
 
 
-    enum FLAGS6503{
+    enum FLAGS6502{
         C = (1 << 0),   //Carry Flag
         Z = (1 << 1),   //Zero Flag
         I = (1 << 2),   //Interrupt Disable Flag
@@ -55,14 +56,14 @@ class CPU6502{
 
     private:
     //To handle status register
-    uint8_t getFlag(FLAGS6503 f);
-    void setFlag(FLAGS6503 f, bool v);
+    uint8_t getFlag(FLAGS6502 f);
+    void setFlag(FLAGS6502 f, bool v);
 
     //Other variables to handle emulation
     uint8_t fetched = 0x00;  //Represents the working input value of the ALU
     uint16_t temp = 0x00;
     uint16_t addrAbs = 0x0000; //Represents the absolute address of the operand for the data 
-    uint16_t addrRel = 0x0000; //For branch instruction to store the relative address   
+    uint16_t addrRel = 0x00; //For branch instruction to store the relative address   
     uint8_t opcode = 0x00;  //Instruction Byte
     uint32_t clockCount = 0;    //Total Clock Cycles
     uint8_t cycles = 0; //Counts the number of clock cycles remaining for the instruction

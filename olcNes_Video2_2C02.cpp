@@ -162,7 +162,7 @@ class Demo_olc2C02 : public olc::PixelGameEngine {
 
         if (GetKey(olc::Key::SPACE).bPressed) bEmulationRun = !bEmulationRun;
         if (GetKey(olc::Key::R).bPressed) nes.reset();
-        if(GetKey(olc::Key::P).bPressed) (++nSelectedPalette) &= 0x07;
+        if (GetKey(olc::Key::P).bPressed) (++nSelectedPalette) &= 0x07;
 
         DrawCpu(516, 2);
         DrawCode(516, 72, 26);
@@ -184,6 +184,20 @@ class Demo_olc2C02 : public olc::PixelGameEngine {
         DrawSprite(516, 348, &nes.ppu.GetPatternTable(0, nSelectedPalette));
         DrawSprite(648, 348, &nes.ppu.GetPatternTable(1, nSelectedPalette));
         DrawSprite(0, 0, &nes.ppu.GetScreen(), 2);
+
+        olc::Sprite &s = nes.ppu.GetPatternTable(1, nSelectedPalette);
+        for (uint8_t y{}; y < 30; y++) {
+            for (uint8_t x{}; x < 32; x++) {
+                // DrawString(x * 16, y * 16, hex((uint32_t)nes.ppu.tblName[1][y
+                // * 32 + x], 2));
+
+                uint8_t id = (uint32_t)nes.ppu.tblName[0][y * 32 + x];
+                DrawPartialSprite(x * 16, y * 16,
+                                  &s,
+                                  (id & 0x0F) << 3, ((id >> 4) & 0x0F) << 3, 8,
+                                  8, 2);
+            }
+        }
         return true;
     }
 };

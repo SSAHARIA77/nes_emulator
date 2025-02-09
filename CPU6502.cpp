@@ -1,5 +1,4 @@
 #include "CPU6502.h"
-#include <cstdint>
 #include "Bus.h"
 
 CPU6502::CPU6502(){
@@ -28,9 +27,10 @@ CPU6502::CPU6502(){
 	};
 }
 
-void CPU6502::connectBus(Bus *b){
-    bus = b;
+CPU6502::~CPU6502(){
+
 }
+
 
 void CPU6502::write(uint16_t addr, uint8_t data){
     bus->cpuWrite(addr, data);
@@ -49,11 +49,12 @@ void CPU6502::clock(){
         //Get the new instruction
         opcode = read(pc);
 
+        setFlag(U, true);
         //Update the program Counter
         pc++;
 
         //Get the starting number of cycles for the instruction
-        cycles += lookup.at(opcode).cycles;
+        cycles = lookup.at(opcode).cycles;
 
         //Get Additional Cycles required
 
@@ -73,20 +74,21 @@ void CPU6502::clock(){
 
         
         cycles += (additionalCycles1 & additionalCycles2);
+        setFlag(U, true);
     }
-
+    clockCount++;
     cycles--;
 }
 
 void CPU6502::irq(){
     if(getFlag(I) == 0){
         //PC and status register is stored in the stack when an interrupt occurs
-        write(0x0100 + sp, (pc << 8) & 0xFF00);
+        write(0x0100 + sp, (pc >> 8) & 0x00FF);
         sp--;
-        write(0x100 + sp, pc & 0x00FF);
+        write(0x0100 + sp, pc & 0x00FF);
         sp--;
-        setFlag(U, 1);
         setFlag(B, 0);
+        setFlag(U, 1);
         setFlag(I, 1);
         write(0x0100 + sp, pStatus);
         sp--;
@@ -104,18 +106,20 @@ void CPU6502::irq(){
 
 //Set the CPU to a known state
 void CPU6502::reset(){
+    //The nes cpu always look at this address to get the program
+    //Programmer can hardcode his code's address to this addressx
+    addrAbs = 0xFFFC;
+    uint16_t lo = read(addrAbs + 0);
+    uint16_t hi = read(addrAbs + 1);
+    pc = (hi << 8) | lo;
+
+
     a = 0;
     x = 0;
     y = 0;
     sp = 0xFD;
     pStatus = 0x00 | U;
 
-    //The nes cpu always look at this address to get the program
-    //Programmer can hardcode his code's address to this address
-    addrAbs = 0xFFFC;
-    uint16_t lo = read(addrAbs + 0);
-    uint16_t hi = read(addrAbs + 1);
-    pc = (hi << 8) | lo;
 
     addrRel = 0x0000;
     addrAbs = 0x0000;
@@ -126,13 +130,13 @@ void CPU6502::reset(){
 }
 
 void CPU6502::nonMaskableIrq(){
-        write(0x0100 + sp, (pc << 8) & 0xFF00);
+        write(0x0100 + sp, (pc >> 8) & 0x00FF);
         sp--;
-        write(0x100 + sp, pc & 0x00FF);
+        write(0x0100 + sp, pc & 0x00FF);
         sp--;
-        setFlag(U, 1);
         setFlag(B, 0);
-        setFlag(I, 1);
+        setFlag(U, 1);
+        setFlag(I, 1);  
         write(0x0100 + sp, pStatus);
         sp--;
 
@@ -154,11 +158,11 @@ uint8_t CPU6502::XXX(){
 
 
 
-uint8_t CPU6502::getFlag(FLAGS6503 f){
+uint8_t CPU6502::getFlag(FLAGS6502 f){
     return ((pStatus & f) > 0) ? 1 : 0;
 }
 
-void CPU6502::setFlag(FLAGS6503 f, bool v){
+void CPU6502::setFlag(FLAGS6502 f, bool v){
     //Toggle
     if(v){
         pStatus |= f;
@@ -205,7 +209,7 @@ uint8_t CPU6502::ZP0(){
 
 //Used for example in traversing an array with base address and x offset
 uint8_t CPU6502::ZPX(){
-    addrAbs = read(pc) + x;
+    addrAbs = (read(pc) + x);
     pc++;
     addrAbs &= 0x00FF;
     return 0;
@@ -213,7 +217,7 @@ uint8_t CPU6502::ZPX(){
 
 //Zero Page Addressing Mode with Y offset
 uint8_t CPU6502::ZPY(){
-    addrAbs = read(pc) + y;
+    addrAbs = (read(pc) + y);
     pc++;
     addrAbs &= 0x00FF;
     return 0;
@@ -282,8 +286,10 @@ uint8_t CPU6502::ABY(){
 //Basically pc is having the address of the address of the data
 //ADDRESS ==> ADDRESS OF DATA ==> ACTUAL DATA
 uint8_t CPU6502::IND(){
-    uint16_t ptrLo = read(pc++);
-    uint16_t ptrHi = read(pc++);
+    uint16_t ptrLo = read(pc);
+    pc++;
+    uint16_t ptrHi = read(pc);
+    pc++;
 
     uint16_t ptr = (ptrHi << 8) | ptrLo;
 
@@ -376,7 +382,7 @@ uint8_t CPU6502::ADC(){
     setFlag(Z, (temp & 0x00FF) == 0);
 
     //Negative Flag is set if msb bit is 1
-    setFlag(N, (temp & 0x0080));
+    setFlag(N, (temp & 0x80));
 
     //For overflow flag: Since in 8 bits -128-127 can also be represented, we need to know
     //whether there has been a wrap around and hence overflow flag is used;
@@ -410,17 +416,17 @@ uint8_t CPU6502::SBC(){
 uint8_t CPU6502::AND(){
     fetch();
     a = a & fetched;
-    setFlag(N, a & 0x80);
     setFlag(Z, a == 0x00);
+    setFlag(N, a & 0x80);
     return 1;
 }
 
 uint8_t CPU6502::ASL(){
     fetch();
     temp = (uint16_t) fetched << 1;
-    setFlag(N, temp & 0x0080);
-    setFlag(Z, temp & 0x00FF == 0x0000);
     setFlag(C, (temp & 0xFF00) > 0);
+    setFlag(Z, temp & 0x00FF == 0x00);
+    setFlag(N, temp & 0x80);
     if(lookup.at(opcode).addrMode == &CPU6502::IMP){
         a = temp & 0x00FF;
     }else{
@@ -431,7 +437,6 @@ uint8_t CPU6502::ASL(){
 
 //Branch if Carry flag clear
 uint8_t CPU6502::BCC(){
-    fetch();
     if(getFlag(C) == 0){
         cycles++;
         addrAbs = pc + addrRel;
@@ -448,7 +453,6 @@ uint8_t CPU6502::BCC(){
 
 //Branch if carry set
 uint8_t CPU6502::BCS(){
-    fetch();
     if(getFlag(C) == 1){
 
         //Add a cycle for branching
@@ -471,9 +475,8 @@ uint8_t CPU6502::BCS(){
 
 //Branch if zero flag is set
 uint8_t CPU6502::BEQ(){
-    fetch();
     if(getFlag(Z) == 1){
-        cycles++;
+        cycles++;   
         addrAbs = pc + addrRel;
 
         //If branch to a new page
@@ -497,8 +500,7 @@ uint8_t CPU6502::BIT(){
 }	
 
 //Branch if negative flag is set
-uint8_t CPU6502::BMI(){
-    fetch();
+uint8_t CPU6502::BMI(){ 
     if(getFlag(N) == 1){
         cycles++;
         addrAbs = pc + addrRel;
@@ -531,7 +533,6 @@ uint8_t CPU6502::BNE(){
 
 //Branch if negative flag is clear
 uint8_t CPU6502::BPL(){
-    fetch();
     if(getFlag(N) == 0){
         cycles++;
         addrAbs = pc + addrRel;
@@ -565,7 +566,6 @@ uint8_t CPU6502::BRK(){
 }	
 
 uint8_t CPU6502::BVC(){
-    fetch();
     if(getFlag(V) == 0){
         cycles++;
         addrAbs = pc + addrRel;
@@ -582,7 +582,6 @@ uint8_t CPU6502::BVC(){
 
 
 uint8_t CPU6502::BVS(){
-    fetch();
     if(getFlag(V) == 1){
         cycles++;
         addrAbs = pc + addrRel;
@@ -712,6 +711,7 @@ uint8_t CPU6502::JSR(){
     write(0x0100 + sp, (pc >> 8) & 0x00FF);
     sp--;
     write(0x0100 + sp, pc & 0x00FF);
+    sp--;
     pc = addrAbs;
     return 0;
 }	
@@ -720,7 +720,7 @@ uint8_t CPU6502::LDA(){
     fetch();
     a = fetched;
     setFlag(Z, a == 0x00);
-    setFlag(Z, a & 0x80);
+    setFlag(N, a & 0x80);
     return 1;
 }	
 
@@ -728,7 +728,7 @@ uint8_t CPU6502::LDX(){
     fetch();
     x = fetched;
     setFlag(Z, x == 0x00);
-    setFlag(Z, x & 0x80);
+    setFlag(N, x & 0x80);
     return 1;
 }	
 
@@ -736,14 +736,14 @@ uint8_t CPU6502::LDY(){
     fetch();
     y = fetched;
     setFlag(Z, y == 0x00);
-    setFlag(Z, y & 0x80);
+    setFlag(N, y & 0x80);
     return 1;
 }
 
 
 uint8_t CPU6502::LSR(){
     fetch();
-    setFlag(C, fetched &0x0001);
+    setFlag(C, fetched & 0x0001);
     temp = fetched >> 1;
     setFlag(Z, (temp & 0x00FF) == 0x0000);
     setFlag(N, temp & 0x0080);
@@ -787,8 +787,8 @@ uint8_t CPU6502::PHA(){
 
 uint8_t CPU6502::PHP(){
     write(0x0100 + sp, pStatus | B | U);
-    setFlag(B, false);
-    setFlag(U, false);
+    setFlag(B, 0);
+    setFlag(U, 0);
     sp--;
     return 0;
 }	
@@ -804,7 +804,7 @@ uint8_t CPU6502::PLA(){
 uint8_t CPU6502::PLP(){
     sp++;
     a = read(0x0100 + sp);
-    setFlag(U, true);
+    setFlag(U, 1);
     return 0;
 }	
 
@@ -818,7 +818,7 @@ uint8_t CPU6502::ROL(){
     if(lookup.at(opcode).addrMode == &CPU6502::IMP){
         a = temp & 0x00FF;
     }else{
-        write(addrAbs, temp & 0x0080);
+        write(addrAbs, temp & 0x00FF);
     }
     return 0;
 
@@ -847,7 +847,7 @@ uint8_t CPU6502::RTI(){
     sp++;
     pc = (uint16_t) read(sp + 0x0100);
     sp++;
-    pc |= (uint16_t) (read(sp + 0x0100) << 8);
+    pc |= (uint16_t) read(sp + 0x0100) << 8;
     return 0;
 }	
 
@@ -855,7 +855,7 @@ uint8_t CPU6502::RTS(){
     sp++;
     pc = (uint16_t)read(sp + 0x0100);
     sp++;
-    pc |= (uint16_t)(read(sp + 0x0100) << 8);
+    pc |= (uint16_t)read(sp + 0x0100) << 8;
 
     pc++;
     return 0; 

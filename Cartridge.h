@@ -18,18 +18,19 @@ class Cartridge{
             ONESCREEN_HI,
         }mirror = HORIZONTAL;
 
+        bool ImageValid();
 
     private:
         // PRG ROM holds the game's code and data for the CPU (the game logic,
         // instructions, level data, music, etc.).
-        std::vector<uint8_t> vPRGMemory;
+        bool bImageValid = false;
 
+        std::vector<uint8_t> vPRGMemory;
         // CHR ROM stores the graphical data used in the game (pattern memory),
         // such as sprites (characters, enemies, etc.) and
         // background tiles
         std::vector<uint8_t>vCHRMemory; 
 
-        bool bImageValid = false;
 
         //To know which mapper we are using
         uint8_t nMapperID = 0;
@@ -43,9 +44,6 @@ class Cartridge{
         //accordingly.
         std::shared_ptr<Mapper> pMapper;
 
-    public:
-        bool ImageValid();
-
 
     public:
 
@@ -57,4 +55,7 @@ class Cartridge{
         //To Communicate with the ppu bus
         bool ppuRead(uint16_t addr, uint8_t &data);
         bool ppuWrite(uint16_t addr, uint8_t data);
+
+        //Permits system reset of mapper to known state
+        void reset();
 };
