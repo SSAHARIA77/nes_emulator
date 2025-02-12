@@ -130,44 +130,68 @@ class PPU2C02 {
         uint16_t reg = 0x0000;
     };
 
+    struct sObjectAttributeEntry {
+        uint8_t y;          // Y position of sprite
+        uint8_t id;         // ID of tile from pattern memory
+        uint8_t attribute;  // Flags define how sprite should be rendered
+        uint8_t x;          // X position of sprite
+    } OAM[64];
+
+    
+    //To store the details of the sprite to be rendered in the scanline
+    sObjectAttributeEntry spriteScanline[8];
+    //To count the number of sprites to be rendered on the scanline
+    uint8_t spriteCount;
+    
+    //Low bit plane of the sprite
+    uint8_t spriteShifterPatternLo[8];
+    
+    //High bit plane of the sprite
+    uint8_t spriteShifterPatternHi[8];
+
+    bool spriteZeroHitPossible = false;
+    bool spriteZeroBeingRendered = false;
+    
     loopy_register vramAddr;
     loopy_register tramAddr;
-
+    
     uint8_t fineX = 0x00;
-
+    
     uint16_t bgShifterPatternLo = 0x0000;
     uint16_t bgShifterPatternHi = 0x0000;
     uint16_t bgShifterAttribLo = 0x0000;
     uint16_t bgShifterAttribHi = 0x0000;
-
+    
     uint8_t bgNextTileId = 0x00;
     uint8_t bgNextTileAttribute = 0x00;
     uint8_t bgNextTileLsb = 0x00;
     uint8_t bgNextTileMsb = 0x00;
-
+    
     uint8_t address_latch =
-        0x00;  // to know if we are using low byte or high byte when reading/writing to ppu
+    0x00;  // to know if we are using low byte or high byte when reading/writing to ppu
     uint8_t ppu_data_buffer = 0x00;  // when we read from ppu it is delayed by
-                                     // one cyle so we need to buffer the byte
-
+    // one cyle so we need to buffer the byte
+    
     // Scanline represents which row on the screen
     int16_t scanline = 0;
     // Cycle represents which columns on the screen
     int16_t cycle = 0;
-
-   public:
+    
+    public:
     // To Communicate with the main bus
     uint8_t cpuRead(uint16_t addr, bool bReadOnly = false);
     void cpuWrite(uint16_t addr, uint8_t data);
-
+    
     // To Communicate with the ppu bus
     uint8_t ppuRead(uint16_t addr, bool bReadOnly = false);
     void ppuWrite(uint16_t addr, uint8_t data);
-
+    
     void connectCartridge(const std::shared_ptr<Cartridge>& cartridge);
     void clock();
     void reset();
     bool nmi = false;
 
 
+    uint8_t* pOAM = (uint8_t*)OAM;
+    uint8_t oamAddr = 0x00;
 };

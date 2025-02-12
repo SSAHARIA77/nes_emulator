@@ -7,7 +7,7 @@
 
 // Ram array?
 /*
-g++ olcNes_PPU_Backgrounds.cpp Bus.cpp CPU6502.cpp PPU2C02.cpp Cartridge.cpp Mapper_000.cpp Mapper.cpp -o test2 -lopengl32 -lglu32 -lgdi32 -luser32 -lgdiplus -lshlwapi -ldwmapi
+g++ olcNes_PPU_Foregrounds.cpp Bus.cpp CPU6502.cpp PPU2C02.cpp Cartridge.cpp Mapper_000.cpp Mapper.cpp -o marioFG -lopengl32 -lglu32 -lgdi32 -luser32 -lgdiplus -lshlwapi -ldwmapi
 */
 
 class Bus{
@@ -48,4 +48,10 @@ class Bus{
         uint32_t nSystemClockCounter = 0;
         uint8_t controllerState[2];
 
+        uint8_t dmaPage = 0x00;
+        uint8_t dmaAddr = 0x00;
+        uint8_t dmaData = 0x00;
+
+        bool dmaTransfer = false;
+        bool dmaDummy = true;
 };

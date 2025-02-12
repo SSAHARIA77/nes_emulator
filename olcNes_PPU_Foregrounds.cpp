@@ -1,5 +1,5 @@
 /*
-	CPU6502 - An emulation of the 6502/2A03 processor
+	olc::NES - Part #5 - PPU Rendering - Foregrounds
 	"Thanks Dad for believing computers were gonna be a big deal..." - javidx9
 
 	License (OLC-3)
@@ -35,25 +35,8 @@
 	(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 	OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-	Background
-	~~~~~~~~~~
-	I love this microprocessor. It was at the heart of two of my favourite
-	machines, the BBC Micro, and the Nintendo Entertainment System, as well
-	as countless others in that era. I learnt to program on the Model B, and
-	I learnt to love games on the NES, so in many ways, this processor is
-	why I am the way I am today.
 
-	In February 2019, I decided to undertake a selfish personal project and
-	build a NES emulator. Ive always wanted to, and as such I've avoided
-	looking at source code for such things. This made making this a real
-	personal challenge. I know its been done countless times, and very likely
-	in far more clever and accurate ways than mine, but I'm proud of this.
-
-	Datasheet: http://archive.6502.org/datasheets/rockwell_r650x_r651x.pdf
-
-	Files: CPU6502.h, CPU6502.cpp
-
-	Relevant Video: https://youtu.be/8XmxKPJDGU0
+	Relevant Video: https://youtu.be/cksywUTZxlY
 
 	Links
 	~~~~~
@@ -82,12 +65,22 @@
 
 
 
-class Demo_CPU6502 : public olc::PixelGameEngine
+class Demo_olc2C02 : public olc::PixelGameEngine
 {
 public:
-	Demo_CPU6502() { sAppName = "CPU6502 Demonstration"; }
+	Demo_olc2C02() { sAppName = "olc2C02 Demonstration"; }
 
+private: 
+	// The NES
 	Bus nes;
+	std::shared_ptr<Cartridge> cart;
+	bool bEmulationRun = false;
+	float fResidualTime = 0.0f;
+
+	uint8_t nSelectedPalette = 0x00;
+
+private: 
+	// Support Utilities
 	std::map<uint16_t, std::string> mapAsm;
 
 	std::string hex(uint32_t n, uint8_t d)
@@ -167,48 +160,20 @@ public:
 
 	bool OnUserCreate()
 	{
-		// Load Program (assembled at https://www.masswerk.at/6502/assembler.html)
-		/*
-			*=$8000
-			LDX #10
-			STX $0000
-			LDX #3
-			STX $0001
-			LDY $0000
-			LDA #0
-			CLC
-			loop
-			ADC $0001
-			DEY
-			BNE loop
-			STA $0002
-			NOP
-			NOP
-			NOP
-		*/
+		// Load the cartridge
+		cart = std::make_shared<Cartridge>("Ice Climber.nes");
 		
-		// Convert hex string into bytes for RAM
-		std::stringstream ss;
-		ss << "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
-		uint16_t nOffset = 0x8000;
-		while (!ss.eof())
-		{
-			std::string b;
-			ss >> b;
-			nes.cpuRam[nOffset++] = (uint8_t)std::stoul(b, nullptr, 16);
-		}
+		if (!cart->ImageValid())
+			return false;
 
-		// Set Reset Vector
-		nes.cpuRam[0xFFFC] = 0x00;
-		nes.cpuRam[0xFFFD] = 0x80;
-
-		// Dont forget to set IRQ and NMI vectors if you want to play with those
-				
+		// Insert into NES
+		nes.insertCartridge(cart);
+					
 		// Extract dissassembly
 		mapAsm = nes.cpu.disassemble(0x0000, 0xFFFF);
 
-		// Reset
-		nes.cpu.reset();
+		// Reset NES
+		nes.reset();
 		return true;
 	}
 
@@ -216,34 +181,86 @@ public:
 	{
 		Clear(olc::DARK_BLUE);
 
+		// Handle input for controller in port #1
+		nes.controller[0] = 0x00;
+		nes.controller[0] |= GetKey(olc::Key::X).bHeld ? 0x80 : 0x00;     // A Button
+		nes.controller[0] |= GetKey(olc::Key::Z).bHeld ? 0x40 : 0x00;     // B Button
+		nes.controller[0] |= GetKey(olc::Key::A).bHeld ? 0x20 : 0x00;     // Select
+		nes.controller[0] |= GetKey(olc::Key::S).bHeld ? 0x10 : 0x00;     // Start
+		nes.controller[0] |= GetKey(olc::Key::UP).bHeld ? 0x08 : 0x00;
+		nes.controller[0] |= GetKey(olc::Key::DOWN).bHeld ? 0x04 : 0x00;
+		nes.controller[0] |= GetKey(olc::Key::LEFT).bHeld ? 0x02 : 0x00;
+		nes.controller[0] |= GetKey(olc::Key::RIGHT).bHeld ? 0x01 : 0x00;
 
-		if (GetKey(olc::Key::SPACE).bPressed)
+		if (GetKey(olc::Key::SPACE).bPressed) bEmulationRun = !bEmulationRun;
+		if (GetKey(olc::Key::R).bPressed) nes.reset();
+		if (GetKey(olc::Key::P).bPressed) (++nSelectedPalette) &= 0x07;
+
+		if (bEmulationRun)
 		{
-			do
+			if (fResidualTime > 0.0f)
+				fResidualTime -= fElapsedTime;
+			else
 			{
-				nes.cpu.clock();
-			} 
-			while (!nes.cpu.complete());
+				fResidualTime += (1.0f / 60.0f) - fElapsedTime;
+				do { nes.clock(); } while (!nes.ppu.frame_complete);
+				nes.ppu.frame_complete = false;
+			}
+		}
+		else
+		{
+			// Emulate code step-by-step
+			if (GetKey(olc::Key::C).bPressed)
+			{
+				// Clock enough times to execute a whole CPU instruction
+				do { nes.clock(); } while (!nes.cpu.complete());
+				// CPU clock runs slower than system clock, so it may be
+				// complete for additional system clock cycles. Drain
+				// those out
+				do { nes.clock(); } while (nes.cpu.complete());
+			}
+
+			// Emulate one whole frame
+			if (GetKey(olc::Key::F).bPressed)
+			{
+				// Clock enough times to draw a single frame
+				do { nes.clock(); } while (!nes.ppu.frame_complete);
+				// Use residual clock cycles to complete current instruction
+				do { nes.clock(); } while (!nes.cpu.complete());
+				// Reset frame completion flag
+				nes.ppu.frame_complete = false;
+			}
 		}
 
-		if (GetKey(olc::Key::R).bPressed)
-			nes.cpu.reset();
+		DrawCpu(516, 2);
+		//DrawCode(516, 72, 26);
 
-		if (GetKey(olc::Key::I).bPressed)
-			nes.cpu.irq();
+		// Draw OAM Contents (first 26 out of 64) ======================================
+		for (int i = 0; i < 26; i++)
+		{
+			std::string s = hex(i, 2) + ": (" + std::to_string(nes.ppu.pOAM[i * 4 + 3])
+				+ ", " + std::to_string(nes.ppu.pOAM[i * 4 + 0]) + ") "
+				+ "ID: " + hex(nes.ppu.pOAM[i * 4 + 1], 2) +
+				+" AT: " + hex(nes.ppu.pOAM[i * 4 + 2], 2);
+			DrawString(516, 72 + i * 10, s);
+		}
 
-		if (GetKey(olc::Key::N).bPressed)
-			nes.cpu.nonMaskableIrq();
+		// Draw Palettes & Pattern Tables ==============================================
+		const int nSwatchSize = 6;
+		for (int p = 0; p < 8; p++) // For each palette
+			for(int s = 0; s < 4; s++) // For each index
+				FillRect(516 + p * (nSwatchSize * 5) + s * nSwatchSize, 340, 
+					nSwatchSize, nSwatchSize, nes.ppu.GetColourFromPaletteRam(p, s));
+		
+		// Draw selection reticule around selected palette
+		DrawRect(516 + nSelectedPalette * (nSwatchSize * 5) - 1, 339, (nSwatchSize * 4), nSwatchSize, olc::WHITE);
 
-		// Draw Ram Page 0x00		
-		DrawRam(2, 2, 0x0000, 16, 16);
-		DrawRam(2, 182, 0x8000, 16, 16);
-		DrawCpu(448, 2);
-		DrawCode(448, 72, 26);
+		// Generate Pattern Tables
+		DrawSprite(516, 348, &nes.ppu.GetPatternTable(0, nSelectedPalette));
+		DrawSprite(648, 348, &nes.ppu.GetPatternTable(1, nSelectedPalette));
 
-
-		DrawString(10, 370, "SPACE = Step Instruction    R = RESET    I = IRQ    N = NMI");
-
+		// Draw rendered output ========================================================
+		DrawSprite(0, 0, &nes.ppu.GetScreen(), 2);
 		return true;
 	}
 };
@@ -254,8 +271,8 @@ public:
 
 int main()
 {
-	Demo_CPU6502 demo;
-	demo.Construct(680, 480, 2, 2);
+	Demo_olc2C02 demo;
+	demo.Construct(780, 480, 2, 2);
 	demo.Start();
 	return 0;
 }

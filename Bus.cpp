@@ -50,6 +50,11 @@ void Bus::cpuWrite(uint16_t addr, uint8_t data){
        ppu.cpuWrite(addr & 0x0007, data);
     }
 
+    else if(addr == 0x4014){
+        dmaPage = data;
+        dmaAddr = 0x00;
+        dmaTransfer = true;
+    }
 	else if (addr >= 0x4016 && addr <= 0x4017){
 		controllerState[addr & 0x0001] = controller[addr & 0x0001]; 
 	}
@@ -61,6 +66,11 @@ void Bus::reset(){
     cpu.reset();
     ppu.reset();
     nSystemClockCounter = 0;
+    dmaPage = 0x00;
+    dmaAddr = 0x00;
+    dmaData = 0x00;
+    dmaDummy = true;
+    dmaTransfer = false;
 }
 
 void Bus::clock(){
@@ -70,8 +80,31 @@ void Bus::clock(){
 	// The CPU runs 3 times slower than the PPU so we only call its
 	// clock() function every 3 times this function is called. We
 	// have a global counter to keep track of this.
-    if(nSystemClockCounter % 3 == 0){
-        cpu.clock();
+    if(nSystemClockCounter % 3 == 0 ){
+        if(dmaTransfer){
+            if(dmaDummy){
+                //Wait for the correct clock cycle for synchronization
+                if(nSystemClockCounter % 2 == 1){
+                    dmaDummy = false;
+                }
+            }else{
+                if(nSystemClockCounter % 2 == 0){
+                    //Read in Even cycle
+                    dmaData = cpuRead(dmaPage << 8 | dmaAddr);
+                }else{
+                    //Write in odd cycle
+                    ppu.pOAM[dmaAddr] = dmaData;
+                    dmaAddr++;
+
+                    if(dmaAddr == 0x00){
+                        dmaTransfer = false;
+                        dmaDummy = true;
+                    }
+                }
+            }
+        }else{
+            cpu.clock();
+        }
     }
 
     if(ppu.nmi){
