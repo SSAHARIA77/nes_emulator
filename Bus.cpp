@@ -49,6 +49,10 @@ void Bus::cpuWrite(uint16_t addr, uint8_t data){
         //PPU Address Range mirrored every 8
        ppu.cpuWrite(addr & 0x0007, data);
     }
+    else if((addr >= 0x4000 && addr <= 0x4013) || addr == 0x4015 || addr == 0x4017){
+        apu.cpuWrite(addr, data);
+    }
+
 
     else if(addr == 0x4014){
         dmaPage = data;
@@ -73,9 +77,10 @@ void Bus::reset(){
     dmaTransfer = false;
 }
 
-void Bus::clock(){
+bool Bus::clock(){
     ppu.clock();
 
+    apu.clock();
 
 	// The CPU runs 3 times slower than the PPU so we only call its
 	// clock() function every 3 times this function is called. We
@@ -107,15 +112,33 @@ void Bus::clock(){
         }
     }
 
+    //Synchronizing with Audio
+    bool audioSampleReady = false;
+    audioTime += audioTimePerNESClock;
+    if(audioTime >= audioTimePerSystemSample){
+        audioTime -= audioTimePerSystemSample;
+        audioSample = apu.GetOutputSample();
+        audioSampleReady = true;
+    }
+
+
     if(ppu.nmi){
         ppu.nmi = false;
         cpu.nonMaskableIrq();
     }
     nSystemClockCounter++;
+
+    return audioSampleReady;
 }
 
 void Bus::insertCartridge(const std::shared_ptr<Cartridge> &cartridge){
     //Connects cartridge to both main bus and ppu bus
     this->cart = cartridge;
     ppu.connectCartridge(cartridge);
+}
+
+
+void Bus::SetSampleFrequency(uint32_t sampleRate){
+    audioTimePerSystemSample = 1.0/(double) sampleRate;
+    audioTimePerNESClock = 1.0/5369318.0;
 }

@@ -100,7 +100,7 @@ class CPU6502{
     uint8_t fetch();
 
     struct Instruction{
-        std::string name;
+        std::string name; //Just for disassembler
         uint8_t (CPU6502::*operate)(void) = nullptr;
         uint8_t (CPU6502::*addrMode)(void) = nullptr;
         uint8_t cycles = 0;

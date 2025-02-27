@@ -12,7 +12,7 @@ class PPU2C02 {
     ~PPU2C02();
 
    private:
-    // Pattern Memory exists on the cartridge on normal NES systems
+    // Pattern Memory exists on the cartridge (CHR Memory) on normal NES systems
     // Wont even be used for the existing roms
 
     uint8_t tblPattern[2][4096];

@@ -43,6 +43,7 @@ bool Mapper_000::cpuMapWrite(uint16_t addr, uint32_t &mapped_addr, uint8_t data)
 	return false;
 }
 
+
 bool Mapper_000::ppuMapRead(uint16_t addr, uint32_t &mapped_addr)
 {
 	// There is no mapping required for PPU
@@ -57,6 +58,8 @@ bool Mapper_000::ppuMapRead(uint16_t addr, uint32_t &mapped_addr)
 	return false;
 }
 
+
+//CHR Memory can sometimes be a RAM
 bool Mapper_000::ppuMapWrite(uint16_t addr, uint32_t &mapped_addr)
 {
 	if (addr >= 0x0000 && addr <= 0x1FFF)

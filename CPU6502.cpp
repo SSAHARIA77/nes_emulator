@@ -60,7 +60,7 @@ void CPU6502::clock(){
 
         //Addressing mode requires a clock cycle when page boundary is crossed.
         //This is because address is fetched as 2 bytes in NES and when offset of x or y register is added
-        //Carry bit is set and this carry bit needs to be added to the high bit of the address which requires
+        //carry bit is set and this carry bit needs to be added to the high bit of the address which requires
         //additional cycle. But this additional cycle is required only for certain type of operations and not 
         //for operations like ASL. Hence are doing AND of these values to know if we really need the additional
         //cycle or not. For functions like ASL, their default cycles only contain the cycle for page crossing itself.
@@ -117,6 +117,10 @@ void CPU6502::reset(){
     a = 0;
     x = 0;
     y = 0;
+
+    // The stack pointer starts at 0xFD to allow space for the first two bytes
+    // of the RESET vector return address, which the CPU pushes to the stack
+    // during initialization.
     sp = 0xFD;
     pStatus = 0x00 | U;
 

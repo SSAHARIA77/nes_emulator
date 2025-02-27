@@ -124,6 +124,8 @@ olc::Pixel &PPU2C02::GetColourFromPaletteRam(uint8_t palette, uint8_t pixel) {
     return palScreen[ppuRead(0x3F00 + (palette << 2) + pixel) & 0x3F];
 }
 
+
+//CPU reads from the PPU
 uint8_t PPU2C02::cpuRead(uint16_t addr, bool bReadOnly) {
     uint8_t data = 0x00;
     if(bReadOnly){
@@ -182,6 +184,8 @@ uint8_t PPU2C02::cpuRead(uint16_t addr, bool bReadOnly) {
     return data;
 }
 
+
+//CPU writes to the PPU
 void PPU2C02::cpuWrite(uint16_t addr, uint8_t data) {
     switch (addr) {
         case 0x0000:  // Control
@@ -231,6 +235,9 @@ void PPU2C02::cpuWrite(uint16_t addr, uint8_t data) {
     }
 }
 
+
+
+//PPU reads from its own bus
 uint8_t PPU2C02::ppuRead(uint16_t addr, bool bReadOnly) {
     uint8_t data = 0x00;
     addr &= 0x3FFF;
@@ -275,6 +282,8 @@ uint8_t PPU2C02::ppuRead(uint16_t addr, bool bReadOnly) {
     return data;
 }
 
+
+//PPU writes to its own bus
 void PPU2C02::ppuWrite(uint16_t addr, uint8_t data) {
     addr &= 0x3FFF;
 
